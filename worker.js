@@ -25,11 +25,11 @@ export default {
         const mode = formData.get('mode') || 'text';
         
         // 构建 Workers AI 的 FormData
-        const aiFormData = new FormData();
+        const aiForm = new FormData();
         
         // 添加提示词
         const finalPrompt = mode === 'json' ? formData.get('json_prompt') : prompt;
-        aiFormData.append('prompt', finalPrompt);
+        aiForm.append('prompt', finalPrompt);
 
         // 添加高级参数
         const steps = formData.get('steps') || '4';
@@ -37,28 +37,36 @@ export default {
         const height = formData.get('height') || '1024';
         const guidance = formData.get('guidance') || '3.5';
         
-        aiFormData.append('steps', steps);
-        aiFormData.append('width', width);
-        aiFormData.append('height', height);
-        aiFormData.append('guidance', guidance);
+        aiForm.append('steps', steps);
+        aiForm.append('width', width);
+        aiForm.append('height', height);
+        aiForm.append('guidance', guidance);
 
         // 如果是多图模式，添加参考图像
         if (mode === 'multi-image') {
           for (let i = 0; i < 4; i++) {
             const image = formData.get(`input_image_${i}`);
             if (image && image.size > 0) {
-              aiFormData.append(`input_image_${i}`, image);
+              aiForm.append(`input_image_${i}`, image);
             }
           }
         }
 
-        // 调用 Workers AI（使用 multipart 格式）
+        // 使用官方推荐的方法：通过 Request 对象转换 FormData
+        const formRequest = new Request('http://dummy', {
+          method: 'POST',
+          body: aiForm
+        });
+        const formStream = formRequest.body;
+        const formContentType = formRequest.headers.get('content-type') || 'multipart/form-data';
+
+        // 调用 Workers AI
         const response = await env.AI.run(
           '@cf/black-forest-labs/flux-2-dev',
           {
             multipart: {
-              body: aiFormData,
-              contentType: 'multipart/form-data'
+              body: formStream,
+              contentType: formContentType
             }
           }
         );
@@ -376,13 +384,14 @@ const HTML_CONTENT = `<!DOCTYPE html>
       <form id="generateForm">
         <div class="form-section active" data-section="text">
           <label>提示词（支持中文、英文等多语言）</label>
-          <textarea name="prompt" placeholder="例如：a sunset at the alps, vibrant colors, dramatic sky"></textarea>
+          <textarea name="prompt" placeholder="例如：a sunset at the alps with a dog, vibrant colors, dramatic sky"></textarea>
           <div class="examples">
             <h4>💡 安全提示词示例</h4>
-            <p>• <code>a sunset at the alps, vibrant colors</code></p>
+            <p>• <code>a sunset at the alps with a dog, vibrant colors</code></p>
             <p>• <code>一只橙色的猫咪戴着墨镜，赛博朋克风格</code></p>
-            <p>• <code>futuristic cityscape at night, neon lights</code></p>
-            <p>• <code>抽象几何图形，渐变色彩 #F48120</code></p>
+            <p>• <code>majestic eagle soaring over mountains, blue sky</code></p>
+            <p>• <code>热带海滩日落，棕榈树剑影，橙色天空</code></p>
+            <p>• <code>abstract colorful geometric shapes #F48120</code></p>
             <p>⚠️ <strong>注意</strong>：避免使用人物相关描述（人、男孩、女孩等）</p>
           </div>
         </div>
@@ -511,14 +520,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
     let currentMode = 'text';
     let uploadedImages = {};
 
-    // 高级设置切换
     advancedToggle.addEventListener('click', () => {
       advancedContent.classList.toggle('active');
       const arrow = advancedToggle.querySelector('span');
       arrow.textContent = advancedContent.classList.contains('active') ? '▼' : '▶';
     });
 
-    // 滑块值更新
     stepsSlider.addEventListener('input', (e) => {
       stepsValue.textContent = e.target.value;
     });
@@ -527,7 +534,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
       guidanceValue.textContent = parseFloat(e.target.value).toFixed(1);
     });
 
-    // 模式切换
     modeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         modeBtns.forEach(b => b.classList.remove('active'));
@@ -545,7 +551,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
       });
     });
 
-    // 文件上传
     document.querySelectorAll('.file-upload input[type="file"]').forEach(input => {
       input.addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -588,15 +593,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
       });
     }
 
-    // 表单提交
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
       errorMessage.classList.remove('active');
       const formData = new FormData();
       formData.append('mode', currentMode);
-      
-      // 添加高级参数
       formData.append('steps', stepsSlider.value);
       formData.append('width', form.querySelector('[name="width"]').value);
       formData.append('height', form.querySelector('[name="height"]').value);
