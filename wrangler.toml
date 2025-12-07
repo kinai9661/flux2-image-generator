@@ -1,0 +1,11 @@
+name = "flux2-image-generator"
+main = "worker.js"
+compatibility_date = "2024-11-25"
+
+[ai]
+binding = "AI"
+
+# 可选：自定义域名
+# routes = [
+#   { pattern = "flux2.yourdomain.com", zone_name = "yourdomain.com" }
+# ]

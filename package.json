@@ -1,0 +1,28 @@
+{
+  "name": "flux2-image-generator",
+  "version": "1.0.0",
+  "description": "FLUX.2 [dev] Image Generator powered by Cloudflare Workers AI",
+  "main": "worker.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "flux",
+    "flux2",
+    "ai",
+    "image-generation",
+    "workers-ai"
+  ],
+  "author": "kinai9661",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kinai9661/flux2-image-generator.git"
+  }
+}
