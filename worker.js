@@ -691,7 +691,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const error = await response.json();
             throw new Error(error.error || '生成失败');
           } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            throw new Error("HTTP " + response.status + ": " + response.statusText);
           }
         }
         
