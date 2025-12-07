@@ -31,6 +31,17 @@ export default {
         const finalPrompt = mode === 'json' ? formData.get('json_prompt') : prompt;
         aiFormData.append('prompt', finalPrompt);
 
+        // 添加高级参数
+        const steps = formData.get('steps') || '4';
+        const width = formData.get('width') || '1024';
+        const height = formData.get('height') || '1024';
+        const guidance = formData.get('guidance') || '3.5';
+        
+        aiFormData.append('steps', steps);
+        aiFormData.append('width', width);
+        aiFormData.append('height', height);
+        aiFormData.append('guidance', guidance);
+
         // 如果是多图模式，添加参考图像
         if (mode === 'multi-image') {
           for (let i = 0; i < 4; i++) {
@@ -158,7 +169,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
       font-weight: 600;
       color: #333;
     }
-    input[type="text"], textarea {
+    input[type="text"], input[type="number"], input[type="range"], textarea, select {
       width: 100%;
       padding: 12px;
       border: 2px solid #ddd;
@@ -166,7 +177,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
       font-size: 1em;
       transition: border-color 0.3s;
     }
-    input[type="text"]:focus, textarea:focus {
+    input[type="text"]:focus, textarea:focus, select:focus {
       outline: none;
       border-color: #F48120;
     }
@@ -174,6 +185,57 @@ const HTML_CONTENT = `<!DOCTYPE html>
       min-height: 120px;
       resize: vertical;
       font-family: monospace;
+    }
+    .advanced-settings {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+    }
+    .advanced-toggle {
+      background: none;
+      border: none;
+      color: #F48120;
+      cursor: pointer;
+      font-size: 1em;
+      font-weight: 600;
+      padding: 10px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .advanced-toggle:hover {
+      text-decoration: underline;
+    }
+    .advanced-content {
+      display: none;
+      margin-top: 15px;
+    }
+    .advanced-content.active {
+      display: block;
+    }
+    .param-group {
+      margin-bottom: 20px;
+    }
+    .param-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+    .slider-container {
+      margin-top: 10px;
+    }
+    .slider-value {
+      display: inline-block;
+      min-width: 50px;
+      text-align: right;
+      font-weight: 600;
+      color: #F48120;
+    }
+    input[type="range"] {
+      width: 100%;
+      margin-top: 8px;
     }
     .file-upload {
       margin-bottom: 15px;
@@ -222,6 +284,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
       font-weight: 600;
       cursor: pointer;
       transition: transform 0.3s;
+      margin-top: 20px;
     }
     .generate-btn:hover {
       transform: translateY(-2px);
@@ -313,18 +376,20 @@ const HTML_CONTENT = `<!DOCTYPE html>
       <form id="generateForm">
         <div class="form-section active" data-section="text">
           <label>提示词（支持中文、英文等多语言）</label>
-          <textarea name="prompt" placeholder="例如：一只穿着赛博朋克风格衣服的猫，戴着太阳镜，霓虹灯背景 #F48120"></textarea>
+          <textarea name="prompt" placeholder="例如：a sunset at the alps, vibrant colors, dramatic sky"></textarea>
           <div class="examples">
-            <h4>💡 提示</h4>
-            <p>• 支持指定十六进制颜色：<code>#F48120</code> (Cloudflare 橙色)</p>
-            <p>• 支持中文、英文、拉丁语等多种语言</p>
-            <p>• 生成数字资产：落地页、漫画条、信息图表等</p>
+            <h4>💡 安全提示词示例</h4>
+            <p>• <code>a sunset at the alps, vibrant colors</code></p>
+            <p>• <code>一只橙色的猫咪戴着墨镜，赛博朋克风格</code></p>
+            <p>• <code>futuristic cityscape at night, neon lights</code></p>
+            <p>• <code>抽象几何图形，渐变色彩 #F48120</code></p>
+            <p>⚠️ <strong>注意</strong>：避免使用人物相关描述（人、男孩、女孩等）</p>
           </div>
         </div>
 
         <div class="form-section" data-section="multi-image">
           <label>提示词</label>
-          <input type="text" name="multi_prompt" placeholder="将图 1 的主体按照图 0 的风格渲染">
+          <input type="text" name="multi_prompt" placeholder="take the style of image 0 and apply to image 1">
           
           <div style="margin-top: 20px;">
             <label>上传参考图片（最多 4 张，每张 ≤ 512x512）</label>
@@ -350,21 +415,63 @@ const HTML_CONTENT = `<!DOCTYPE html>
           <div class="examples">
             <h4>💡 提示</h4>
             <p>• 可引用图片索引：<code>take the subject of image 1 and style it like image 0</code></p>
-            <p>• 自然语言：<code>place the dog beside the woman</code></p>
+            <p>• 自然语言：<code>combine the elements from all images</code></p>
             <p>• 风格迁移、角色添加、图像迭代</p>
           </div>
         </div>
 
         <div class="form-section" data-section="json">
           <label>JSON 提示（精细控制）</label>
-          <textarea name="json_prompt" placeholder='{"scene": "繁华的城市街道", "subject": "一位穿着时尚的女性", "style": "电影感", "lighting": "黄金时段", "color_scheme": "#F48120"}'></textarea>
+          <textarea name="json_prompt" placeholder='{"scene": "mountain landscape", "time": "sunset", "style": "cinematic", "colors": "warm orange and purple"}'></textarea>
           <div class="examples">
             <h4>💡 JSON 架构示例</h4>
             <p><code>scene</code>: 场景描述</p>
             <p><code>subject</code>: 主体描述</p>
             <p><code>style</code>: 风格类型</p>
             <p><code>lighting</code>: 光照条件</p>
-            <p><code>color_scheme</code>: 颜色方案（支持十六进制）</p>
+            <p><code>colors</code>: 颜色方案</p>
+          </div>
+        </div>
+
+        <div class="advanced-settings">
+          <button type="button" class="advanced-toggle" id="advancedToggle">
+            <span>▶</span> 高级设置
+          </button>
+          <div class="advanced-content" id="advancedContent">
+            <div class="param-row">
+              <div class="param-group">
+                <label>图像宽度</label>
+                <select name="width" id="widthSelect">
+                  <option value="512">512px</option>
+                  <option value="768">768px</option>
+                  <option value="1024" selected>1024px</option>
+                  <option value="1280">1280px</option>
+                  <option value="1536">1536px</option>
+                </select>
+              </div>
+              <div class="param-group">
+                <label>图像高度</label>
+                <select name="height" id="heightSelect">
+                  <option value="512">512px</option>
+                  <option value="768">768px</option>
+                  <option value="1024" selected>1024px</option>
+                  <option value="1280">1280px</option>
+                  <option value="1536">1536px</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="param-group">
+              <label>生成步数 (Steps): <span class="slider-value" id="stepsValue">4</span></label>
+              <input type="range" name="steps" id="stepsSlider" min="1" max="50" value="4" step="1">
+              <small style="color: #666; display: block; margin-top: 5px;">更多步数 = 更高质量，但生成速度更慢（推荐 4-25）</small>
+            </div>
+            
+            <div class="param-group">
+              <label>引导强度 (Guidance): <span class="slider-value" id="guidanceValue">3.5</span></label>
+              <input type="range" name="guidance" id="guidanceSlider" min="1" max="20" value="3.5" step="0.1">
+              <small style="color: #666; display: block; margin-top: 5px;">控制图像与提示词的符合度（推荐 2.5-5）</small>
+            </div>
           </div>
         </div>
 
@@ -394,10 +501,33 @@ const HTML_CONTENT = `<!DOCTYPE html>
     const resultImage = document.getElementById('resultImage');
     const previewGrid = document.getElementById('previewGrid');
     const errorMessage = document.getElementById('errorMessage');
+    const advancedToggle = document.getElementById('advancedToggle');
+    const advancedContent = document.getElementById('advancedContent');
+    const stepsSlider = document.getElementById('stepsSlider');
+    const stepsValue = document.getElementById('stepsValue');
+    const guidanceSlider = document.getElementById('guidanceSlider');
+    const guidanceValue = document.getElementById('guidanceValue');
     
     let currentMode = 'text';
     let uploadedImages = {};
 
+    // 高级设置切换
+    advancedToggle.addEventListener('click', () => {
+      advancedContent.classList.toggle('active');
+      const arrow = advancedToggle.querySelector('span');
+      arrow.textContent = advancedContent.classList.contains('active') ? '▼' : '▶';
+    });
+
+    // 滑块值更新
+    stepsSlider.addEventListener('input', (e) => {
+      stepsValue.textContent = e.target.value;
+    });
+
+    guidanceSlider.addEventListener('input', (e) => {
+      guidanceValue.textContent = parseFloat(e.target.value).toFixed(1);
+    });
+
+    // 模式切换
     modeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         modeBtns.forEach(b => b.classList.remove('active'));
@@ -415,6 +545,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
       });
     });
 
+    // 文件上传
     document.querySelectorAll('.file-upload input[type="file"]').forEach(input => {
       input.addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -457,12 +588,19 @@ const HTML_CONTENT = `<!DOCTYPE html>
       });
     }
 
+    // 表单提交
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
       errorMessage.classList.remove('active');
       const formData = new FormData();
       formData.append('mode', currentMode);
+      
+      // 添加高级参数
+      formData.append('steps', stepsSlider.value);
+      formData.append('width', form.querySelector('[name="width"]').value);
+      formData.append('height', form.querySelector('[name="height"]').value);
+      formData.append('guidance', guidanceSlider.value);
       
       if (currentMode === 'text') {
         const prompt = form.querySelector('[name="prompt"]').value;
