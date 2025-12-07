@@ -83,8 +83,7 @@ export default {
 };
 
 // HTML 内容
-const HTML_CONTENT = `
-<!DOCTYPE html>
+const HTML_CONTENT = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -303,7 +302,6 @@ const HTML_CONTENT = `
       </div>
 
       <form id="generateForm">
-        <!-- 文本模式 -->
         <div class="form-section active" data-section="text">
           <label>提示词（支持中文、英文等多语言）</label>
           <textarea name="prompt" placeholder="例如：一只穿着赛博朋克风格衣服的猫，戴着太阳镜，霓虹灯背景 #F48120"></textarea>
@@ -315,7 +313,6 @@ const HTML_CONTENT = `
           </div>
         </div>
 
-        <!-- 多图模式 -->
         <div class="form-section" data-section="multi-image">
           <label>提示词</label>
           <input type="text" name="multi_prompt" placeholder="将图 1 的主体按照图 0 的风格渲染">
@@ -349,7 +346,6 @@ const HTML_CONTENT = `
           </div>
         </div>
 
-        <!-- JSON 模式 -->
         <div class="form-section" data-section="json">
           <label>JSON 提示（精细控制）</label>
           <textarea name="json_prompt" placeholder='{"scene": "繁华的城市街道", "subject": "一位穿着时尚的女性", "style": "电影感", "lighting": "黄金时段", "color_scheme": "#F48120"}'></textarea>
@@ -390,7 +386,6 @@ const HTML_CONTENT = `
     let currentMode = 'text';
     let uploadedImages = {};
 
-    // 模式切换
     modeBtns.forEach(btn => {
       btn.addEventListener('click', () => {
         modeBtns.forEach(b => b.classList.remove('active'));
@@ -408,7 +403,6 @@ const HTML_CONTENT = `
       });
     });
 
-    // 文件上传预览
     document.querySelectorAll('.file-upload input[type="file"]').forEach(input => {
       input.addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -434,14 +428,23 @@ const HTML_CONTENT = `
         reader.onload = (e) => {
           const div = document.createElement('div');
           div.className = 'preview-item';
-          div.innerHTML = `<img src="${e.target.result}" alt="Image ${index}"><div style="text-align:center;padding:5px;background:#f0f0f0;font-size:0.8em;">图片 ${index}</div>`;
+          
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          img.alt = 'Image ' + index;
+          
+          const label = document.createElement('div');
+          label.style.cssText = 'text-align:center;padding:5px;background:#f0f0f0;font-size:0.8em;';
+          label.textContent = '图片 ' + index;
+          
+          div.appendChild(img);
+          div.appendChild(label);
           previewGrid.appendChild(div);
         };
         reader.readAsDataURL(file);
       });
     }
 
-    // 表单提交
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
@@ -468,7 +471,7 @@ const HTML_CONTENT = `
         formData.append('prompt', prompt);
         
         Object.keys(uploadedImages).forEach(index => {
-          formData.append(`input_image_${index}`, uploadedImages[index]);
+          formData.append('input_image_' + index, uploadedImages[index]);
         });
       } else if (currentMode === 'json') {
         const jsonPrompt = form.querySelector('[name="json_prompt"]').value;
