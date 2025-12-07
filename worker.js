@@ -2,7 +2,6 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     
-    // 处理 CORS
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -13,50 +12,37 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // 返回 HTML 页面
     if (request.method === 'GET') {
       return new Response(HTML_CONTENT, {
         headers: { 'Content-Type': 'text/html;charset=UTF-8' }
       });
     }
 
-    // 处理图像生成请求
     if (request.method === 'POST' && url.pathname === '/generate') {
       try {
         const formData = await request.formData();
         const prompt = formData.get('prompt');
-        const mode = formData.get('mode') || 'text'; // text, multi-image, json
+        const mode = formData.get('mode') || 'text';
         
-        // 构建 AI 请求的 FormData
-        const aiFormData = new FormData();
-        
-        if (mode === 'json') {
-          // JSON 提示模式
-          const jsonPrompt = formData.get('json_prompt');
-          aiFormData.append('prompt', jsonPrompt);
-        } else if (mode === 'multi-image') {
-          // 多图参考模式
-          aiFormData.append('prompt', prompt);
-          
-          // 添加参考图像（最多4张）
+        const inputs = {
+          prompt: mode === 'json' ? formData.get('json_prompt') : prompt
+        };
+
+        if (mode === 'multi-image') {
           for (let i = 0; i < 4; i++) {
             const image = formData.get(`input_image_${i}`);
             if (image && image.size > 0) {
-              aiFormData.append(`input_image_${i}`, image);
+              const arrayBuffer = await image.arrayBuffer();
+              inputs[`image_${i}`] = [...new Uint8Array(arrayBuffer)];
             }
           }
-        } else {
-          // 纯文本模式
-          aiFormData.append('prompt', prompt);
         }
 
-        // 调用 Workers AI
         const response = await env.AI.run(
           '@cf/black-forest-labs/flux-2-dev',
-          aiFormData
+          inputs
         );
 
-        // 返回生成的图像
         return new Response(response, {
           headers: {
             ...corsHeaders,
@@ -65,8 +51,10 @@ export default {
         });
 
       } catch (error) {
+        console.error('Generation error:', error);
         return new Response(JSON.stringify({ 
           error: error.message,
+          stack: error.stack,
           details: 'Failed to generate image'
         }), {
           status: 500,
@@ -82,7 +70,6 @@ export default {
   }
 };
 
-// HTML 内容
 const HTML_CONTENT = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -285,6 +272,18 @@ const HTML_CONTENT = `<!DOCTYPE html>
       border-radius: 4px;
       font-family: monospace;
     }
+    .error-message {
+      background: #fee;
+      border: 2px solid #fcc;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+      color: #c00;
+      display: none;
+    }
+    .error-message.active {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -362,9 +361,11 @@ const HTML_CONTENT = `<!DOCTYPE html>
         <button type="submit" class="generate-btn">🚀 生成图像</button>
       </form>
 
+      <div class="error-message" id="errorMessage"></div>
+
       <div class="loading">
         <div class="spinner"></div>
-        <p>正在生成图像，请稍候...</p>
+        <p>正在生成图像，请稍候...<br><small>（首次生成可能需要 30-60 秒）</small></p>
       </div>
 
       <div class="result-section">
@@ -382,6 +383,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
     const resultSection = document.querySelector('.result-section');
     const resultImage = document.getElementById('resultImage');
     const previewGrid = document.getElementById('previewGrid');
+    const errorMessage = document.getElementById('errorMessage');
     
     let currentMode = 'text';
     let uploadedImages = {};
@@ -448,24 +450,28 @@ const HTML_CONTENT = `<!DOCTYPE html>
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
+      errorMessage.classList.remove('active');
       const formData = new FormData();
       formData.append('mode', currentMode);
       
       if (currentMode === 'text') {
         const prompt = form.querySelector('[name="prompt"]').value;
         if (!prompt) {
-          alert('请输入提示词');
+          errorMessage.textContent = '请输入提示词';
+          errorMessage.classList.add('active');
           return;
         }
         formData.append('prompt', prompt);
       } else if (currentMode === 'multi-image') {
         const prompt = form.querySelector('[name="multi_prompt"]').value;
         if (!prompt) {
-          alert('请输入提示词');
+          errorMessage.textContent = '请输入提示词';
+          errorMessage.classList.add('active');
           return;
         }
         if (Object.keys(uploadedImages).length === 0) {
-          alert('请至少上传一张参考图片');
+          errorMessage.textContent = '请至少上传一张参考图片';
+          errorMessage.classList.add('active');
           return;
         }
         formData.append('prompt', prompt);
@@ -476,14 +482,16 @@ const HTML_CONTENT = `<!DOCTYPE html>
       } else if (currentMode === 'json') {
         const jsonPrompt = form.querySelector('[name="json_prompt"]').value;
         if (!jsonPrompt) {
-          alert('请输入 JSON 提示');
+          errorMessage.textContent = '请输入 JSON 提示';
+          errorMessage.classList.add('active');
           return;
         }
         try {
           JSON.parse(jsonPrompt);
           formData.append('json_prompt', jsonPrompt);
         } catch (e) {
-          alert('JSON 格式错误，请检查');
+          errorMessage.textContent = 'JSON 格式错误，请检查';
+          errorMessage.classList.add('active');
           return;
         }
       }
@@ -498,7 +506,8 @@ const HTML_CONTENT = `<!DOCTYPE html>
         });
         
         if (!response.ok) {
-          throw new Error('生成失败');
+          const error = await response.json();
+          throw new Error(error.error || '生成失败');
         }
         
         const blob = await response.blob();
@@ -507,7 +516,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
         resultImage.src = imageUrl;
         resultSection.classList.add('active');
       } catch (error) {
-        alert('生成失败: ' + error.message);
+        console.error(error);
+        errorMessage.textContent = '生成失败: ' + error.message;
+        errorMessage.classList.add('active');
       } finally {
         loading.classList.remove('active');
       }
