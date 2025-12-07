@@ -24,25 +24,35 @@ export default {
         const prompt = formData.get('prompt');
         const mode = formData.get('mode') || 'text';
         
-        const inputs = {
-          prompt: mode === 'json' ? formData.get('json_prompt') : prompt
-        };
+        // 构建 Workers AI 的 FormData
+        const aiFormData = new FormData();
+        
+        // 添加提示词
+        const finalPrompt = mode === 'json' ? formData.get('json_prompt') : prompt;
+        aiFormData.append('prompt', finalPrompt);
 
+        // 如果是多图模式，添加参考图像
         if (mode === 'multi-image') {
           for (let i = 0; i < 4; i++) {
             const image = formData.get(`input_image_${i}`);
             if (image && image.size > 0) {
-              const arrayBuffer = await image.arrayBuffer();
-              inputs[`image_${i}`] = [...new Uint8Array(arrayBuffer)];
+              aiFormData.append(`input_image_${i}`, image);
             }
           }
         }
 
+        // 调用 Workers AI（使用 multipart 格式）
         const response = await env.AI.run(
           '@cf/black-forest-labs/flux-2-dev',
-          inputs
+          {
+            multipart: {
+              body: aiFormData,
+              contentType: 'multipart/form-data'
+            }
+          }
         );
 
+        // 返回生成的图像
         return new Response(response, {
           headers: {
             ...corsHeaders,
