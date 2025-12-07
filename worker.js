@@ -71,40 +71,11 @@ export default {
           }
         );
 
-        // 确保返回的是图片数据
-        // Workers AI 返回的可能是 ReadableStream 或 Uint8Array
-        let imageData;
-        if (response instanceof ReadableStream) {
-          // 如果是流，转换为 ArrayBuffer
-          const reader = response.getReader();
-          const chunks = [];
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(value);
-          }
-          const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-          imageData = new Uint8Array(totalLength);
-          let offset = 0;
-          for (const chunk of chunks) {
-            imageData.set(chunk, offset);
-            offset += chunk.length;
-          }
-        } else if (response instanceof Uint8Array) {
-          imageData = response;
-        } else if (response instanceof ArrayBuffer) {
-          imageData = new Uint8Array(response);
-        } else {
-          // 直接返回
-          imageData = response;
-        }
-
         // 返回生成的图像
-        return new Response(imageData, {
+        return new Response(response, {
           headers: {
             ...corsHeaders,
             'Content-Type': 'image/png',
-            'Cache-Control': 'no-cache',
           }
         });
 
@@ -343,7 +314,6 @@ const HTML_CONTENT = `<!DOCTYPE html>
       width: 100%;
       border-radius: 8px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-      background: #f0f0f0;
     }
     .loading {
       text-align: center;
@@ -686,42 +656,17 @@ const HTML_CONTENT = `<!DOCTYPE html>
         });
         
         if (!response.ok) {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const error = await response.json();
-            throw new Error(error.error || '生成失败');
-          } else {
-            throw new Error("HTTP " + response.status + ": " + response.statusText);
-          }
+          const error = await response.json();
+          throw new Error(error.error || '生成失败');
         }
         
-        // 确保接收到的是图片数据
         const blob = await response.blob();
-        
-        // 清除旧的 URL
-        if (resultImage.src && resultImage.src.startsWith('blob:')) {
-          URL.revokeObjectURL(resultImage.src);
-        }
-        
-        // 创建新的 URL
         const imageUrl = URL.createObjectURL(blob);
         
-        // 设置图片并显示
-        resultImage.onload = () => {
-          resultSection.classList.add('active');
-          console.log('Image loaded successfully');
-        };
-        
-        resultImage.onerror = (err) => {
-          console.error('Image failed to load:', err);
-          errorMessage.textContent = '图片加载失败，请重试';
-          errorMessage.classList.add('active');
-        };
-        
         resultImage.src = imageUrl;
-        
+        resultSection.classList.add('active');
       } catch (error) {
-        console.error('Generation error:', error);
+        console.error(error);
         errorMessage.textContent = '生成失败: ' + error.message;
         errorMessage.classList.add('active');
       } finally {
